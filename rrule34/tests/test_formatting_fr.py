@@ -63,3 +63,16 @@ def test_every_since_until():
         freq=YEARLY, dtstart=datetime(2000, 1, 2, 12),
         until=datetime(2030, 12, 25, 11, 25)) == (
         'Tous les ans depuis le 02/01/2000 12:00 jusqu’au 25/12/2030 11:25')
+
+
+def test_every_count():
+    assert rr(freq=DAILY, count=1) == 'Tous les jours seulement 1 fois'
+    assert rr(freq=DAILY, count=12) == 'Tous les jours seulement 12 fois'
+
+
+def test_every_bymonth():
+    assert rr(freq=YEARLY, bymonth=3) == 'Tous les ans en mars'
+    assert rr(freq=YEARLY, bymonth=11) == 'Tous les ans en novembre'
+    assert rr(freq=YEARLY, bymonth=(1, 3)) == 'Tous les ans en janvier et mars'
+    assert rr(freq=YEARLY, bymonth=(1, 3, 12)) == (
+        'Tous les ans en janvier, mars et décembre')

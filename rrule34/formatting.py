@@ -1,6 +1,8 @@
+from datetime import date
+
+from babel.dates import format_datetime, format_date
 from dateutil.rrule import (
     DAILY, HOURLY, MINUTELY, MONTHLY, SECONDLY, WEEKLY, YEARLY, rrule)
-from babel.dates import format_datetime
 
 
 class Word(object):
@@ -31,9 +33,7 @@ class LangCollection(type):
 
 class Lang(object, metaclass=LangCollection):
     def format_rrule(self, freq, until, count, interval,
-                     bysecond, byminute, byhour, byday, bymonthday, byyearday,
-                     byweekno, bymonth, bysetpos,
-                     wkst, dtstart, tzinfo, include_start_date,
+                     by_rules, wkst, dtstart, tzinfo, include_start_date,
                      date_verbosity):
 
         parts = []
@@ -42,6 +42,13 @@ class Lang(object, metaclass=LangCollection):
             parts.append(self.since(dtstart, tzinfo, date_verbosity))
         if until:
             parts.append(self.until(until, date_verbosity))
+
+        for by, values in by_rules.items():
+            if values:
+                parts.append(self.by(by, values))
+
+        if count:
+            parts.append(self.count(count))
 
         return ' '.join(parts)
 
@@ -57,11 +64,24 @@ class en_US(Lang):
         YEARLY: Word('year'),
     }
 
+    def join_list(self, it):
+        if len(it) == 1:
+            return it[0]
+        return ' and '.join(
+            [', '.join(it[:-1]), it[-1]])
+
     def every(self, freq, interval):
         word = self.FREQUENCIES.get(freq)
         if interval > 1:
             return 'Every %s %s' % (interval, word.plural)
         return 'Every %s' % word
+
+    def count(self, count):
+        if count == 1:
+            return 'only once'
+        if count == 2:
+            return 'only twice'
+        return 'only %d times' % count
 
     def since(self, dtstart, tzinfo, date_verbosity):
         return 'since %s' % format_datetime(
@@ -72,6 +92,15 @@ class en_US(Lang):
         return 'until %s' % format_datetime(
             until, date_verbosity,
             locale=self.__class__.__name__)
+
+    def by(self, by, values):
+        if by == 'bymonth':
+            return 'on %s' % self.join_list([
+                format_date(date(2000, month, 1), 'MMMM',
+                            locale=self.__class__.__name__)
+                for month in values
+            ])
+        return ''
 
 
 class fr_FR(Lang):
@@ -88,6 +117,12 @@ class fr_FR(Lang):
         YEARLY: Word('an', MASCULIN),
     }
 
+    def join_list(self, it):
+        if len(it) == 1:
+            return it[0]
+        return ' et '.join(
+            [', '.join(it[:-1]), it[-1]])
+
     def every(self, freq, interval):
         word = self.FREQUENCIES.get(freq)
         itvl = '%d ' % interval if interval > 1 else ''
@@ -95,6 +130,11 @@ class fr_FR(Lang):
             return 'Tous les %s%s' % (itvl, word.plural)
         if word.genre is self.FEMININ:
             return 'Toutes les %s%s' % (itvl, word.plural)
+
+    def count(self, count):
+        if count == 1:
+            return 'seulement 1 fois'
+        return 'seulement %d fois' % count
 
     def since(self, dtstart, tzinfo, date_verbosity):
         return 'depuis le %s' % format_datetime(
@@ -106,6 +146,15 @@ class fr_FR(Lang):
             until, date_verbosity,
             locale=self.__class__.__name__)
 
+    def by(self, by, values):
+        if by == 'bymonth':
+            return 'en %s' % self.join_list([
+                format_date(date(2000, month, 1), 'MMMM',
+                            locale=self.__class__.__name__)
+                for month in values
+            ])
+        return ''
+
 
 def format_rrule(
         rr, lang='en_US', include_start_date=False, date_verbosity='full'):
@@ -114,15 +163,7 @@ def format_rrule(
         rr._until,
         rr._count,
         rr._interval,
-        rr._bysecond,
-        rr._byminute,
-        rr._byhour,
-        rr._byweekday,
-        rr._bymonthday,
-        rr._byyearday,
-        rr._byweekno,
-        rr._bymonth,
-        rr._bysetpos,
+        rr._original_rule,
         rr._wkst,
         # From event
         rr._dtstart,
