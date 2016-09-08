@@ -20,7 +20,7 @@ setup(
     packages=find_packages(),
     platforms="Any",
     provides=['rrule34'],
-    install_requires=["python-dateutil"],
+    install_requires=["python-dateutil", "babel"],
     tests_require=["pytest"],
     classifiers=[
         "Development Status :: 4 - Beta",
