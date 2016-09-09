@@ -1,8 +1,9 @@
-from datetime import date
+from datetime import date, time
 
-from babel.dates import format_datetime, format_date
+from babel.dates import (
+    format_date, format_datetime, format_time, get_day_names, get_month_names)
 from dateutil.rrule import (
-    DAILY, HOURLY, MINUTELY, MONTHLY, SECONDLY, WEEKLY, YEARLY, rrule)
+    DAILY, HOURLY, MINUTELY, MONTHLY, SECONDLY, WEEKLY, YEARLY)
 
 
 class Word(object):
@@ -33,8 +34,8 @@ class LangCollection(type):
 
 class Lang(object, metaclass=LangCollection):
     def format_rrule(self, freq, until, count, interval,
-                     by_rules, wkst, dtstart, tzinfo, include_start_date,
-                     date_verbosity):
+                     by_rules, by_timeset, wkst, dtstart, tzinfo,
+                     include_start_date, date_verbosity):
 
         parts = []
         parts.append(self.every(freq, interval))
@@ -43,9 +44,16 @@ class Lang(object, metaclass=LangCollection):
         if until:
             parts.append(self.until(until, date_verbosity))
 
-        for by, values in by_rules.items():
+        for by in (
+                'bysetpos', 'bymonth', 'bymonthday', 'byyearday', 'byweekno',
+                'byweekday', 'byeaster'):
+            values = by_rules.get(by)
             if values:
-                parts.append(self.by(by, values))
+                parts.append(self.by(by, sorted([
+                    getattr(v, 'weekday', v) for v in values])))
+
+        if by_timeset:
+            self.by_timeset(by_timeset)
 
         if count:
             parts.append(self.count(count))
@@ -65,10 +73,22 @@ class en_US(Lang):
     }
 
     def join_list(self, it):
+        it = list(map(str, it))
         if len(it) == 1:
             return it[0]
         return ' and '.join(
             [', '.join(it[:-1]), it[-1]])
+
+    def nth(self, number):
+        if 10 < number < 14:
+            return '%dth' % number
+        if number % 10 == 1:
+            return '%dst' % number
+        if number % 10 == 2:
+            return '%dnd' % number
+        if number % 10 == 3:
+            return '%drd' % number
+        return '%dth' % number
 
     def every(self, freq, interval):
         word = self.FREQUENCIES.get(freq)
@@ -94,13 +114,81 @@ class en_US(Lang):
             locale=self.__class__.__name__)
 
     def by(self, by, values):
+        if by == 'bysetpos':
+            before = [-v for v in reversed(values) if v < 0]
+            after = [v for v in values if v > 0]
+            parts = []
+            t = 0
+            if after:
+                if len(after) == 1 and after[0] == 1:
+                    parts.append('the first')
+                    t += 1
+                else:
+                    parts.append(
+                        'the %s first' %
+                        self.join_list([self.nth(val) for val in after]))
+                    t += 2
+            if before:
+                if len(before) == 1 and before[0] == 1:
+                    parts.append('the last')
+                    t += 1
+                else:
+                    parts.append(
+                        'the %s last' %
+                        self.join_list([self.nth(val) for val in before]))
+                    t += 2
+
+            return ' and '.join(parts) + ' occurence%s' % (
+                's' if t != 1 else '')
+
         if by == 'bymonth':
             return 'on %s' % self.join_list([
-                format_date(date(2000, month, 1), 'MMMM',
-                            locale=self.__class__.__name__)
+                get_month_names(locale=self.__class__.__name__)[month]
                 for month in values
             ])
-        return ''
+
+        if by == 'bymonthday':
+            return 'the %s of month' % self.join_list(values)
+
+        if by == 'byyearday':
+            return 'the %s of year' % self.join_list(values)
+
+        if by == 'byweekno':
+            return 'the week%s n°%s' % (
+                's' if len(values) > 1 else '',
+                self.join_list(values))
+
+        if by == 'byweekday':
+            dow = get_day_names(locale=self.__class__.__name__)
+
+            return 'on %s' % self.join_list([
+                 dow[val] for val in values
+            ])
+
+        if by == 'byeaster':
+            before = [-v for v in reversed(values) if v < 0]
+            after = [v for v in values if v > 0]
+            parts = []
+            if before:
+                if len(before) == 1 and before[0] == 1:
+                    parts.append('1 day before Easter')
+                else:
+                    parts.append(
+                        '%s days before Easter' % self.join_list(before))
+            if after:
+                if len(after) == 1 and before[0] == 1:
+                    parts.append('1 day after Easter')
+                else:
+                    parts.append(
+                        '%s days after Easter' % self.join_list(after))
+
+            return ' and '.join(parts)
+
+    def by_timeset(self, by_timeset):
+        return 'at %s' % self.join_list([
+             format_time(val, locale=self.__class__.__name__)
+             for val in by_timeset
+        ])
 
 
 class fr_FR(Lang):
@@ -116,12 +204,17 @@ class fr_FR(Lang):
         MONTHLY: Word('mois', MASCULIN, 'mois'),
         YEARLY: Word('an', MASCULIN),
     }
-
     def join_list(self, it):
+        it = list(map(str, it))
         if len(it) == 1:
             return it[0]
         return ' et '.join(
             [', '.join(it[:-1]), it[-1]])
+
+    def nth(self, number, genre=MASCULIN):
+        if number == 1:
+            return '1er' if genre is self.MASCULIN else '1ère'
+        return '%dème' % number
 
     def every(self, freq, interval):
         word = self.FREQUENCIES.get(freq)
@@ -147,14 +240,85 @@ class fr_FR(Lang):
             locale=self.__class__.__name__)
 
     def by(self, by, values):
+        if by == 'bysetpos':
+            before = [-v for v in reversed(values) if v < 0]
+            after = [v for v in values if v > 0]
+            parts = []
+            t = 0
+            if after:
+                if len(after) == 1:
+                    parts.append('la %s' % self.nth(after[0], self.FEMININ))
+                    t += 1
+                else:
+                    t += 2
+                    parts.append(
+                    'les %s premières' %
+                    self.join_list([self.nth(val) for val in after]))
+            if before:
+                if len(before) == 1:
+                    if before[0] == 1:
+                        parts.append('la dernière')
+                    else:
+                        parts.append(
+                            'l’%sdernière' % ('avant-' * (before[0] - 1)))
+                    t += 1
+                else:
+                    t += 2
+                    parts.append(
+                        'les %s dernières' %
+                        self.join_list([self.nth(val) for val in before]))
+
+            return ' et '.join(parts) + ' occurence%s' % (
+                's' if t != 1 else '')
+
         if by == 'bymonth':
             return 'en %s' % self.join_list([
-                format_date(date(2000, month, 1), 'MMMM',
-                            locale=self.__class__.__name__)
+                get_month_names(locale=self.__class__.__name__)[month]
                 for month in values
             ])
-        return ''
+        if by == 'bymonthday':
+            return 'le %s jour du mois' % self.join_list(
+                [self.nth(val) for val in values])
 
+        if by == 'byyearday':
+            return 'le %s jour de l’année' % self.join_list(
+                [self.nth(val) for val in values])
+
+        if by == 'byweekno':
+            if len(values) == 1:
+                return 'la semaine n°%d' % values[0]
+            return 'les semaines n°%s' % self.join_list(values)
+
+        if by == 'byweekday':
+            dow = get_day_names(locale=self.__class__.__name__)
+
+            return 'le %s' % self.join_list([
+                 dow[val] for val in values
+            ])
+
+        if by == 'byeaster':
+            before = [-v for v in reversed(values) if v < 0]
+            after = [v for v in values if v > 0]
+            parts = []
+            if before:
+                if len(before) == 1 and before[0] == 1:
+                    parts.append('la veille de Pâques')
+                else:
+                    parts.append(
+                        '%s jours avant Pâques' % self.join_list(before))
+            if after:
+                if len(after) == 1 and after[0] == 1:
+                    parts.append('le lendemain de Pâques')
+                else:
+                    parts.append('%s jours après Pâques' % self.join_list(after))
+
+            return ' et '.join(parts)
+
+    def by_timeset(self, by_timeset):
+        return 'à %s' % self.join_list([
+             format_time(val, locale=self.__class__.__name__)
+             for val in by_timeset
+        ])
 
 def format_rrule(
         rr, lang='en_US', include_start_date=False, date_verbosity='full'):
@@ -164,6 +328,7 @@ def format_rrule(
         rr._count,
         rr._interval,
         rr._original_rule,
+        rr._timeset,
         rr._wkst,
         # From event
         rr._dtstart,

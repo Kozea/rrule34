@@ -80,3 +80,22 @@ def test_every_bymonth():
     assert rr(freq=YEARLY, bymonth=(1, 3)) == 'Every year on January and March'
     assert rr(freq=YEARLY, bymonth=(1, 3, 12)) == (
         'Every year on January, March and December')
+
+
+def test_every_thing():
+    assert rr(
+        include_start_date=True, freq=MONTHLY,
+        dtstart=datetime(2010, 1, 10, 10, 1, 10),
+        until=datetime(2020, 2, 20, 20, 2, 20),
+        bysetpos=(-4, -2, 1), bymonth=(2, 5, 11), bymonthday=(12, 15, 18, 20),
+        byyearday=(12, 87, 350, 220), byweekno=(12, 13, 39),
+        byweekday=(1, 2, 4, 5),
+        byhour=(10, 15, 19), byminute=15, bysecond=(14, 29),
+        byeaster=(-3, -2, 1)
+    ) == (
+        'Every month since Sunday, January 10, 2010 at 10:01:10 AM GMT+00:00'
+        ' until Thursday, February 20, 2020 at 8:02:20 PM GMT+00:00 the first '
+        'and the 2nd and 4th last occurences on February, May and November the'
+        ' 12, 15, 18 and 20 of month the 12, 87, 220 and 350 of year the weeks'
+        ' n°12, 13 and 39 on Tuesday, Wednesday, Friday and Saturday 2 and 3 '
+        'days before Easter and 1 days after Easter')
