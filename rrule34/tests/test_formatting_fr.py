@@ -92,7 +92,7 @@ def test_every_thing():
         'Tous les mois depuis le dimanche 10 janvier 2010 à 10:01:10 '
         'UTC+00:00 jusqu’au jeudi 20 février 2020 à 20:02:20 UTC+00:00 la 1ère'
         ' et les 2ème et 4ème dernières occurences en février, mai et novembre'
-        ' le 12ème, 15ème, 18ème et 20ème jour du mois le 12ème, 87ème, '
-        '220ème et 350ème jour de l’année les semaines n°12, 13 et 39 '
+        ' les 12ème, 15ème, 18ème et 20ème jours du mois les 12ème, 87ème, '
+        '220ème et 350ème jours de l’année les semaines n°12, 13 et 39 '
         'le mardi, mercredi, vendredi et samedi 2 et 3 jours avant Pâques '
         'et le lendemain de Pâques')

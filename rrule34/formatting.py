@@ -277,11 +277,15 @@ class fr_FR(Lang):
                 for month in values
             ])
         if by == 'bymonthday':
-            return 'le %s jour du mois' % self.join_list(
+            if len(values) == 1:
+                return 'le %s jour du mois' % self.nth(val)
+            return 'les %s jours du mois' % self.join_list(
                 [self.nth(val) for val in values])
 
         if by == 'byyearday':
-            return 'le %s jour de l’année' % self.join_list(
+            if len(values) == 1:
+                return 'le %s jour de l’année' % self.nth(val)
+            return 'les %s jours de l’année' % self.join_list(
                 [self.nth(val) for val in values])
 
         if by == 'byweekno':
