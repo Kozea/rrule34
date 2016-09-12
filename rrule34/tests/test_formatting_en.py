@@ -1,14 +1,21 @@
 from datetime import date, datetime
 
 from dateutil.rrule import (
-    DAILY, HOURLY, MINUTELY, MONTHLY, SECONDLY, WEEKLY, YEARLY, rrule)
+    DAILY, HOURLY, MINUTELY, MONTHLY, SECONDLY, WEEKLY, YEARLY, rrule,
+    rruleset)
 
-from ..formatting import format_rrule
+from rrule34.formatting import format_rrule, format_rruleset
 
 
 def rr(include_start_date=False, date_verbosity='full', **rr):
     return format_rrule(
-        rrule(**rr), lang='en_US',
+        rrule(**rr), locale='en_US',
+        include_start_date=include_start_date, date_verbosity=date_verbosity)
+
+
+def rrs(rrs, include_start_date=False, date_verbosity='full'):
+    return format_rruleset(
+        rrs, locale='en_US',
         include_start_date=include_start_date, date_verbosity=date_verbosity)
 
 
@@ -34,7 +41,7 @@ def test_every_since():
         include_start_date=True,
         freq=MINUTELY, dtstart=datetime(2000, 1, 2, 12)) == (
             'Every minute since Sunday, January 2, 2000 at '
-            '12:00:00 PM GMT+00:00')
+            '12:00:00 PM')
 
     assert rr(
         include_start_date=True, date_verbosity='short',
@@ -46,12 +53,12 @@ def test_every_until():
     assert rr(
         freq=YEARLY, until=date(2030, 12, 25)) == (
         'Every year until Wednesday, '
-        'December 25, 2030 at 12:00:00 AM GMT+00:00')
+        'December 25, 2030 at 12:00:00 AM')
 
     assert rr(
         freq=YEARLY, until=datetime(2030, 12, 25, 11, 25)) == (
         'Every year until Wednesday, '
-        'December 25, 2030 at 11:25:00 AM GMT+00:00')
+        'December 25, 2030 at 11:25:00 AM')
 
 
 def test_every_since_until():
@@ -59,8 +66,8 @@ def test_every_since_until():
         include_start_date=True,
         freq=YEARLY, dtstart=datetime(2000, 1, 2, 12),
         until=datetime(2030, 12, 25, 11, 25)) == (
-        'Every year since Sunday, January 2, 2000 at 12:00:00 PM GMT+00:00 '
-        'until Wednesday, December 25, 2030 at 11:25:00 AM GMT+00:00')
+        'Every year since Sunday, January 2, 2000 at 12:00:00 PM '
+        'until Wednesday, December 25, 2030 at 11:25:00 AM')
 
     assert rr(
         include_start_date=True, date_verbosity='short',
@@ -93,9 +100,32 @@ def test_every_thing():
         byhour=(10, 15, 19), byminute=15, bysecond=(14, 29),
         byeaster=(-3, -2, 1)
     ) == (
-        'Every month since Sunday, January 10, 2010 at 10:01:10 AM GMT+00:00'
-        ' until Thursday, February 20, 2020 at 8:02:20 PM GMT+00:00 the first '
+        'Every month since Sunday, January 10, 2010 at 10:01:10 AM'
+        ' until Thursday, February 20, 2020 at 8:02:20 PM the first '
         'and the 2nd and 4th last occurences on February, May and November the'
         ' 12, 15, 18 and 20 of month the 12, 87, 220 and 350 of year the weeks'
         ' n°12, 13 and 39 on Tuesday, Wednesday, Friday and Saturday 2 and 3 '
         'days before Easter and 1 days after Easter')
+
+
+def test_rrule_set():
+    rrset = rruleset()
+    rrset.rrule(rrule(freq=SECONDLY))
+    assert rrs(rrset) == 'Every second'
+    rrset.rrule(rrule(freq=MONTHLY))
+    assert rrs(rrset) == 'Every second and every month'
+    rrset.rdate(datetime(2015, 5, 15, 15, 50, 25))
+    assert rrs(rrset) == (
+        'Every second, every month and on '
+        'Friday, May 15, 2015 at 3:50:25 PM')
+    rrset.exrule(rrule(freq=DAILY, byweekday=(1, 5)))
+    assert rrs(rrset) == (
+        'Every second, every month, on '
+        'Friday, May 15, 2015 at 3:50:25 PM and except '
+        'every day on Tuesday and Saturday')
+    rrset.exdate(datetime(2014, 4, 14, 14, 40, 24))
+    assert rrs(rrset) == (
+        'Every second, every month, on '
+        'Friday, May 15, 2015 at 3:50:25 PM, except '
+        'every day on Tuesday and Saturday and except on '
+        'Monday, April 14, 2014 at 2:40:24 PM')
